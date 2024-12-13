@@ -45,6 +45,7 @@
             cursor: pointer;
             margin-left: 5px;
         }
+
     </style>
 </head>
 <body>
@@ -73,6 +74,7 @@
     </div>
 
     <div class="mt-3 text-danger" id="error"></div>
+
   </div>
 
   <!-- Tool Description -->
@@ -140,22 +142,37 @@
             const loadingSpinner = $('#loading');
             errorDiv.text('');
             loadingSpinner.removeClass('d-none');
-            const mergedPdfBytes = await mergePdfs(selectedFiles);
+            
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
 
-            if (!mergedPdfBytes) {
-                errorDiv.text('An error occurred while merging the PDFs.');
-                loadingSpinner.addClass('d-none');
-                return;
+            // Send the request to the backend API
+            try {
+                const response = await fetch('/api/merge-pdfs', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // If success, show the download link
+                    $('#error').text('');
+                    $('#fileList').append(`
+                        <div class="file-item">
+                            <a href="${result.downloadUrl}" target="_blank">Download Merged PDF</a>
+                        </div>
+                    `);
+                } else {
+                    // Show error message if failed
+                    $('#error').text(result.error || 'An error occurred.');
+                }
+            } catch (error) {
+                console.error('Error during merging:', error);
+                $('#error').text('An error occurred while merging PDFs.');
             }
-
-            // Create a Blob URL for the merged PDF and trigger the download
-            const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'merged.pdf';
-            a.click();
-            URL.revokeObjectURL(url);
 
             loadingSpinner.addClass('d-none');
         });
@@ -165,25 +182,6 @@
             selectedFiles = [];
             $('#fileList').empty();
         });
-
-        // Function to merge PDFs using PDF-lib
-        async function mergePdfs(files) {
-            try {
-                const pdfDoc = await PDFLib.PDFDocument.create();
-
-                for (let file of files) {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const donorPdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-                    const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
-                    copiedPages.forEach((page) => pdfDoc.addPage(page));
-                }
-
-                return await pdfDoc.save();
-            } catch (error) {
-                console.error('Error merging PDFs:', error);
-                return null;
-            }
-        }
     });
   </script>
 </body>
