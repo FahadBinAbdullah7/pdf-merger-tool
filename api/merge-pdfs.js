@@ -19,6 +19,8 @@ app.post('/api/merge-pdfs', upload, async (req, res) => {
     return res.status(400).json({ message: 'No files uploaded' });
   }
 
+  console.log('Uploaded Files:', req.files.map(file => file.originalname));  // Log uploaded files
+
   try {
     const pdfDoc = await PDFLib.PDFDocument.create();
 
@@ -43,8 +45,8 @@ app.post('/api/merge-pdfs', upload, async (req, res) => {
     const downloadLink = `${req.protocol}://${req.get('host')}/` + outputFileName;
     res.status(200).json({ downloadLink: downloadLink });
   } catch (error) {
-    console.error('Error merging PDFs:', error);
-    res.status(500).json({ message: 'An error occurred while merging the PDFs.' });
+    console.error('Error merging PDFs:', error);  // Log detailed error
+    res.status(500).json({ message: 'An error occurred while merging the PDFs.', error: error.message });
   }
 });
 
