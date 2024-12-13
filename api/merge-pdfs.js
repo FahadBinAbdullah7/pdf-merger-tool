@@ -1,57 +1,63 @@
-import { IncomingForm } from 'formidable';
-import fs from 'fs';
-import { PDFDocument } from 'pdf-lib';
-
-// Disable body parsing to handle the multipart/form-data manually
-export const config = {
-    api: {
-        bodyParser: false, // Disables the default body parsing to handle form data ourselves
-    },
-};
+const { IncomingForm } = require('formidable');
+const fs = require('fs');
+const path = require('path');
+const PDFLib = require('pdf-lib');
 
 export default async (req, res) => {
-    // Initialize formidable to handle file parsing
-    const form = new IncomingForm();
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
+    }
 
-    // Parse the incoming request to handle the form data and files
+    // Create a new IncomingForm to handle file uploads
+    const form = new IncomingForm({
+        keepExtensions: true,  // Keep file extensions
+        maxFileSize: 10 * 1024 * 1024,  // 10 MB limit (adjust as needed)
+    });
+
+    // Parse the incoming request and handle the files
     form.parse(req, async (err, fields, files) => {
         if (err) {
-            console.error('Error while parsing files:', err);
+            console.error('Error parsing files:', err);  // Log error details
             return res.status(400).json({ error: 'Error parsing files' });
         }
 
+        // Log received files
+        console.log('Files received:', files);
+
+        const filesArray = Array.isArray(files.files) ? files.files : [files.files];
+        
+        // Validate that all files are PDFs
+        for (const file of filesArray) {
+            if (file.mimetype !== 'application/pdf') {
+                return res.status(400).json({ error: 'Only PDF files are allowed.' });
+            }
+        }
+
         try {
-            // Create a new PDF document to merge the PDFs into
-            const pdfDoc = await PDFDocument.create();
+            // Create a new PDF document to merge files into
+            const pdfDoc = await PDFLib.PDFDocument.create();
 
-            // Ensure files are an array, if only one file was uploaded, turn it into an array
-            const filesArray = Array.isArray(files.files) ? files.files : [files.files];
-
-            // Loop through the uploaded files
+            // Loop through each uploaded PDF file
             for (const file of filesArray) {
-                // Read the PDF file data from the temporary location
-                const pdfBytes = fs.readFileSync(file.filepath);
+                const pdfBytes = fs.readFileSync(file.filepath);  // Read the file from the temporary location
 
-                // Load the PDF document
-                const donorPdf = await PDFDocument.load(pdfBytes);
-
-                // Get all pages from the donor PDF and add them to the new PDF document
+                const donorPdf = await PDFLib.PDFDocument.load(pdfBytes);
                 const copiedPages = await pdfDoc.copyPages(donorPdf, donorPdf.getPageIndices());
                 copiedPages.forEach((page) => pdfDoc.addPage(page));
             }
 
-            // Save the merged PDF as a byte array
+            // Save the merged PDF document
             const mergedPdfBytes = await pdfDoc.save();
 
-            // Set the response headers to indicate that a PDF file is being sent
+            // Set response headers for PDF download
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'attachment; filename="merged.pdf"');
-            
-            // Send the merged PDF in the response
+            res.setHeader('Content-Disposition', 'attachment; filename=merged.pdf');
+
+            // Send the merged PDF as a response to trigger download
             return res.status(200).send(Buffer.from(mergedPdfBytes));
 
         } catch (error) {
-            console.error('Error while merging PDFs:', error);
+            console.error('Error merging PDFs:', error);  // Log the error
             return res.status(500).json({ error: 'Failed to merge PDFs.' });
         }
     });
