@@ -7,6 +7,25 @@
     <meta name="description" content="Merge multiple PDFs into a single document online. Free, fast, and easy to use.">
     <title>PDF Merger Tool</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .file-item {
+            display: inline-block;
+            margin: 5px;
+            background-color: #f0f0f0;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .file-item .remove {
+            color: red;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+
+        .file-item .remove:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 
 <body>
@@ -16,42 +35,90 @@
 
         <div class="mb-3">
             <input type="file" id="fileInput" class="form-control" multiple accept="application/pdf">
+            <button class="btn btn-primary mt-2" id="addFileBtn">Add File</button>
         </div>
-        <button class="btn btn-primary" id="mergeBtn">Merge PDFs</button>
+
+        <div id="fileList" class="mb-3"></div>
+
         <button class="btn btn-danger" id="clearAllBtn">Clear All</button>
+        <button class="btn btn-success" id="mergeBtn">Merge PDFs</button>
 
         <div id="error" class="text-danger mt-3"></div>
     </div>
 
     <script>
-        document.getElementById('mergeBtn').addEventListener('click', async () => {
-            const files = document.getElementById('fileInput').files;
-            const errorDiv = document.getElementById('error');
-            errorDiv.textContent = ''; // Clear any previous error
+        // Handle adding files to the list
+        const fileInput = document.getElementById('fileInput');
+        const addFileBtn = document.getElementById('addFileBtn');
+        const fileList = document.getElementById('fileList');
+        const mergeBtn = document.getElementById('mergeBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const errorDiv = document.getElementById('error');
 
-            if (files.length === 0) {
+        let selectedFiles = [];
+
+        addFileBtn.addEventListener('click', () => {
+            const files = fileInput.files;
+            for (let file of files) {
+                if (!selectedFiles.some(f => f.name === file.name)) {
+                    selectedFiles.push(file);
+                    displayFiles();
+                }
+            }
+            fileInput.value = ''; // Reset file input after selection
+        });
+
+        // Display selected files in the list
+        function displayFiles() {
+            fileList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.classList.add('file-item');
+                fileItem.innerHTML = `${file.name} <span class="remove" onclick="removeFile(${index})">X</span>`;
+                fileList.appendChild(fileItem);
+            });
+        }
+
+        // Remove selected file from the list
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            displayFiles();
+        }
+
+        // Clear all selected files
+        clearAllBtn.addEventListener('click', () => {
+            selectedFiles = [];
+            displayFiles();
+            errorDiv.textContent = ''; // Clear error message
+        });
+
+        // Handle merge operation
+        mergeBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) {
                 errorDiv.textContent = 'Please select at least one PDF.';
                 return;
             }
 
             const fileArray = [];
-            for (const file of files) {
+            errorDiv.textContent = ''; // Clear error message
+            selectedFiles.forEach(file => {
                 const reader = new FileReader();
                 const promise = new Promise((resolve) => {
                     reader.onload = () => resolve(reader.result.split(',')[1]);
                     reader.readAsDataURL(file);
                 });
-                fileArray.push(await promise);
-            }
+                fileArray.push(promise);
+            });
 
             try {
-                // Show loading message or indicator
+                // Show loading message
                 errorDiv.textContent = 'Processing, please wait...';
 
+                const base64Files = await Promise.all(fileArray);
                 const response = await fetch('/api/merge-pdfs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ files: fileArray }),
+                    body: JSON.stringify({ files: base64Files }),
                 });
 
                 if (response.ok) {
@@ -73,11 +140,6 @@
             } catch (error) {
                 errorDiv.textContent = 'An unexpected error occurred.';
             }
-        });
-
-        document.getElementById('clearAllBtn').addEventListener('click', () => {
-            document.getElementById('fileInput').value = ''; // Clear the file input
-            document.getElementById('error').textContent = ''; // Clear any error messages
         });
     </script>
 </body>
