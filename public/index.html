@@ -35,7 +35,6 @@
 
         <div class="mb-3">
             <input type="file" id="fileInput" class="form-control" multiple accept="application/pdf">
-            <button class="btn btn-primary mt-2" id="addFileBtn">Add File</button>
         </div>
 
         <div id="fileList" class="mb-3"></div>
@@ -48,7 +47,6 @@
 
     <script>
         const fileInput = document.getElementById('fileInput');
-        const addFileBtn = document.getElementById('addFileBtn');
         const fileList = document.getElementById('fileList');
         const mergeBtn = document.getElementById('mergeBtn');
         const clearAllBtn = document.getElementById('clearAllBtn');
@@ -56,15 +54,16 @@
 
         let selectedFiles = [];
 
-        addFileBtn.addEventListener('click', () => {
-            const files = fileInput.files;
-            for (let file of files) {
+        // Display selected files in the list
+        fileInput.addEventListener('change', () => {
+            const files = Array.from(fileInput.files);
+            files.forEach(file => {
                 if (!selectedFiles.some(f => f.name === file.name)) {
                     selectedFiles.push(file);
-                    displayFiles();
                 }
-            }
-            fileInput.value = ''; // Reset file input after selection
+            });
+            displayFiles();
+            fileInput.value = ''; // Reset input
         });
 
         function displayFiles() {
@@ -98,13 +97,13 @@
 
             const formData = new FormData();
             selectedFiles.forEach(file => {
-                formData.append('pdfFiles', file); // Append each file with the field name 'pdfFiles'
+                formData.append('pdfFiles', file); // Append each file
             });
 
             try {
                 const response = await fetch('/api/merge-pdfs', {
                     method: 'POST',
-                    body: formData, // Send the FormData object
+                    body: formData
                 });
 
                 if (response.ok) {
