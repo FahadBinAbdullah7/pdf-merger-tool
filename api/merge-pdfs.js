@@ -1,47 +1,66 @@
-// api/merge-pdfs.js
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
+const path = require('path');
 const { PDFDocument } = require('pdf-lib');
-const router = express.Router();
 
-// Configure multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+const app = express();
+const port = 3000;
 
-// API route for merging PDFs
-router.post('/merge-pdfs', upload.array('files'), async (req, res) => {
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'No files provided' });
-    }
-
-    try {
-        // Create a new PDF document to merge the files into
-        const pdfDoc = await PDFDocument.create();
-
-        // Iterate over the uploaded PDF files and add their pages to the new document
-        for (let i = 0; i < req.files.length; i++) {
-            const filePath = req.files[i].path;
-            const pdfBytes = fs.readFileSync(filePath);
-            const pdf = await PDFDocument.load(pdfBytes);
-            const pages = await pdf.copyPages(pdf, pdf.getPageIndices());
-            pages.forEach((page) => pdfDoc.addPage(page));
-
-            // Clean up: Delete the uploaded files after processing
-            fs.unlinkSync(filePath);
-        }
-
-        // Save the merged PDF
-        const mergedPdfBytes = await pdfDoc.save();
-
-        // Set response headers and send the merged PDF file
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename="merged.pdf"');
-        res.send(mergedPdfBytes);
-
-    } catch (error) {
-        console.error('Error merging PDFs:', error);
-        res.status(500).json({ error: 'An error occurred while merging PDFs' });
+// Set up multer for file handling
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/'); // Upload directory
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
     }
 });
 
-module.exports = router;
+const upload = multer({ storage: storage }).array('files');
+
+// Middleware to ensure 'uploads' folder exists
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+}
+
+app.post('/api/merge-pdfs', upload, async (req, res) => {
+    try {
+        // Log uploaded files for debugging
+        console.log('Uploaded files:', req.files.map(file => file.originalname));
+
+        // Validate file types
+        for (let file of req.files) {
+            if (!file.mimetype.startsWith('application/pdf')) {
+                return res.status(400).json({ error: `File ${file.originalname} is not a valid PDF.` });
+            }
+        }
+
+        // Load PDF files using pdf-lib
+        const pdfDoc = await PDFDocument.create();
+        for (let file of req.files) {
+            const filePath = path.join(__dirname, 'uploads', file.filename);
+            const pdfBytes = fs.readFileSync(filePath);
+            const pdf = await PDFDocument.load(pdfBytes);
+            const copiedPages = await pdfDoc.copyPages(pdf, pdf.getPageIndices());
+            copiedPages.forEach(page => pdfDoc.addPage(page));
+            fs.unlinkSync(filePath); // Delete the file after processing
+        }
+
+        // Save the merged PDF to a buffer
+        const mergedPdfBytes = await pdfDoc.save();
+
+        // Set the response headers for PDF download
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=merged.pdf');
+        res.send(Buffer.from(mergedPdfBytes));
+
+    } catch (error) {
+        console.error('Error merging PDFs:', error);
+        res.status(500).json({ error: 'An unexpected error occurred while merging PDFs.' });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});
