@@ -1,82 +1,186 @@
-<!-- HTML code for the frontend -->
-<script>
-  $(document).ready(function() {
-    let selectedFiles = [];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta name="description" content="Easily merge multiple PDF files into a single document with our online PDF Merger Tool. Free, fast, and simple to use.">
+    <meta name="keywords" content="merge PDFs, PDF tool, combine PDF files, free PDF merger, online PDF">
+    <title>PDF Merger Tool - Combine PDF Files Easily</title>
+    <!-- Include Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Custom CSS for the loading spinner */
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #007bff;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            display: none;
+        }
 
-    // Add file to the list
-    $('#addFileBtn').on('click', function() {
-      const fileInput = $('#fileInput')[0];
-      const errorDiv = $('#error');
-      
-      if (fileInput.files.length === 0) {
-        errorDiv.text('Please select at least one file to add.');
-        return;
-      }
-      
-      errorDiv.text('');
-      
-      // Add the selected files to the array and update the UI
-      for (let file of fileInput.files) {
-        selectedFiles.push(file);
-        $('#fileList').append(`
-          <div class="file-item">
-            <span>${file.name}</span>
-            <button onclick="removeFile('${file.name}')">X</button>
-          </div>
-        `);
-      }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
-      // Clear the file input
-      $('#fileInput').val('');
-    });
+        .file-list {
+            margin-bottom: 15px;
+        }
 
-    // Remove a file from the list
-    window.removeFile = function(fileName) {
-      selectedFiles = selectedFiles.filter(file => file.name !== fileName);
-      $(`#fileList div:contains(${fileName})`).remove();
-    };
+        .file-item {
+            display: inline-block;
+            margin-right: 10px;
+            background-color: #f9f9f9;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
 
-    // Merge PDFs
-    $('#mergeBtn').on('click', async function() {
-      const errorDiv = $('#error');
-      const loadingSpinner = $('#loading');
-      const downloadLinkDiv = $('#downloadLink');
-      errorDiv.text('');
-      loadingSpinner.removeClass('d-none');
-      downloadLinkDiv.empty();
+        .file-item button {
+            border: none;
+            background: none;
+            color: red;
+            cursor: pointer;
+            margin-left: 5px;
+        }
 
-      const formData = new FormData();
-      selectedFiles.forEach(file => {
-        formData.append('files', file);
-      });
+    </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <h1>Merge PDF Files</h1>
+    <!-- Input Form and File Uploads -->
+    <div class="input-group mb-3">
+      <input class="form-control" id="fileInput" type="file" accept="application/pdf" multiple>
+      <div class="input-group-append">
+        <button class="btn btn-primary" id="addFileBtn">Add File</button>
+      </div>
+    </div>
+    
+    <!-- File List -->
+    <div id="fileList" class="file-list"></div>
 
-      try {
-        const response = await fetch('/api/merge-pdfs', {
-          method: 'POST',
-          body: formData,
+    <!-- Merge Button -->
+    <button class="btn btn-success" id="mergeBtn">Merge PDFs</button>
+    <button class="btn btn-danger ml-2" id="clearAllBtn">Clear All</button>
+
+    <!-- Loading Spinner -->
+    <div class="mt-3 d-none" id="loading">
+      <div class="spinner-border" role="status">
+        <span class="sr-only">Loading...</span>
+      </div>
+    </div>
+
+    <div class="mt-3 text-danger" id="error"></div>
+
+    <!-- Download Link -->
+    <div id="downloadLink" class="mt-3 d-none">
+      <a href="#" id="downloadPdf" class="btn btn-success">Download Merged PDF</a>
+    </div>
+
+  </div>
+
+  <!-- Tool Description -->
+  <div class="alert alert-info mt-5">
+    <h3>Tool Description:</h3>
+    The PDF Merger Tool is an online service that allows you to merge multiple PDF files into one document. This tool is completely free to use, fast, and simple. Just upload your files, click "Merge PDFs," and download the resulting combined document.
+  </div>
+
+  <div class="alert alert-info">
+    <h3>How to Use the PDF Merger Tool:</h3>
+    <ol>
+      <li><strong>Select PDF Files:</strong> Click the "Choose Files" button to select the PDFs you want to merge.</li>
+      <li><strong>Click "Add File":</strong> Add the selected files to the list of PDFs to merge.</li>
+      <li><strong>Merge Files:</strong> Click "Merge PDFs" to combine your selected files into one document.</li>
+      <li><strong>Download the Merged PDF:</strong> A download link will appear after the PDF is merged.</li>
+      <li><strong>Clear All Files:</strong> Click "Clear All" to remove all selected files from the list.</li>
+    </ol>
+  </div>
+
+  <!-- Include jQuery and Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    $(document).ready(function() {
+        let selectedFiles = [];
+
+        // Add file to the list
+        $('#addFileBtn').on('click', function() {
+            const fileInput = $('#fileInput')[0];
+            const errorDiv = $('#error');
+            
+            if (fileInput.files.length === 0) {
+                errorDiv.text('Please select at least one file to add.');
+                return;
+            }
+            
+            errorDiv.text('');
+            
+            // Add the selected files to the array and update the UI
+            for (let file of fileInput.files) {
+                selectedFiles.push(file);
+                $('#fileList').append(`
+                    <div class="file-item">
+                        <span>${file.name}</span>
+                        <button onclick="removeFile('${file.name}')">X</button>
+                    </div>
+                `);
+            }
+
+            // Clear the file input
+            $('#fileInput').val('');
         });
 
-        const result = await response.json();
-        
-        if (response.ok) {
-          // If the request is successful, show the download link
-          downloadLinkDiv.html(`<a href="${result.downloadUrl}" class="btn btn-success">Download Merged PDF</a>`);
-        } else {
-          // Show error message from the backend
-          errorDiv.text(result.error || 'An error occurred while merging the PDFs.');
-        }
-      } catch (error) {
-        console.error('Error during API request:', error);
-        errorDiv.text('An error occurred while merging the PDFs.');
-      }
+        // Remove a file from the list
+        window.removeFile = function(fileName) {
+            selectedFiles = selectedFiles.filter(file => file.name !== fileName);
+            $(`#fileList div:contains(${fileName})`).remove();
+        };
 
-      loadingSpinner.addClass('d-none');
-    });
+        // Merge PDFs
+        $('#mergeBtn').on('click', function() {
+            const errorDiv = $('#error');
+            const loadingSpinner = $('#loading');
+            const downloadLinkDiv = $('#downloadLink');
+            const downloadPdfLink = $('#downloadPdf');
+            errorDiv.text('');
+            loadingSpinner.removeClass('d-none');
+            downloadLinkDiv.addClass('d-none');  // Hide download link initially
 
-    // Clear all files
-    $('#clearAllBtn').on('click', function() {
-      selectedFiles = [];
-      $('#fileList').empty();
+            const formData = new FormData();
+            selectedFiles.forEach(file => formData.append('pdfFiles', file));
+
+            // Call the backend API to merge PDFs
+            $.ajax({
+                url: '/api/merge-pdfs',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    const url = window.URL.createObjectURL(new Blob([response]));
+                    downloadPdfLink.attr('href', url);
+                    downloadPdfLink.attr('download', 'merged.pdf');
+                    downloadLinkDiv.removeClass('d-none');
+                    loadingSpinner.addClass('d-none');
+                },
+                error: function(xhr) {
+                    errorDiv.text('An error occurred while merging the PDFs.');
+                    loadingSpinner.addClass('d-none');
+                }
+            });
+        });
+
+        // Clear all files
+        $('#clearAllBtn').on('click', function() {
+            selectedFiles = [];
+            $('#fileList').empty();
+            $('#downloadLink').addClass('d-none');  // Hide the download link
+        });
     });
-  });
-</script>
+  </script>
+</body>
+</html>
