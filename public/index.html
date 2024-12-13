@@ -18,19 +18,34 @@
     <button class="btn btn-primary" id="mergeBtn">Merge PDFs</button>
 
     <div id="error" class="text-danger mt-3"></div>
+
+    <!-- Download link for the merged PDF will appear here -->
+    <div id="downloadLink" class="mt-3" style="display: none;">
+        <a href="#" id="downloadBtn" class="btn btn-success">Download Merged PDF</a>
+    </div>
 </div>
 
 <script>
     document.getElementById('mergeBtn').addEventListener('click', async () => {
         const files = document.getElementById('fileInput').files;
         const errorDiv = document.getElementById('error');
+        const downloadLinkDiv = document.getElementById('downloadLink');
+        const downloadBtn = document.getElementById('downloadBtn');
         errorDiv.textContent = '';
+        downloadLinkDiv.style.display = 'none';  // Hide download link initially
 
         if (files.length === 0) {
             errorDiv.textContent = 'Please select at least one PDF.';
             return;
         }
 
+        // Validate file types
+        if (![...files].every(file => file.type === 'application/pdf')) {
+            errorDiv.textContent = 'All files must be PDFs.';
+            return;
+        }
+
+        // Convert files to base64 strings
         const fileArray = [];
         for (const file of files) {
             const reader = new FileReader();
@@ -51,11 +66,10 @@
             if (response.ok) {
                 const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'merged.pdf';
-                a.click();
-                URL.revokeObjectURL(url);
+
+                // Display download link
+                downloadLinkDiv.style.display = 'block';
+                downloadBtn.href = url;  // Set the download link to the merged PDF
             } else {
                 const error = await response.json();
                 errorDiv.textContent = error.error || 'Failed to merge PDFs.';
