@@ -1,13 +1,13 @@
 {
   "name": "pdf-merger-tool",
   "version": "1.0.0",
-  "description": "A simple PDF merger tool using PDF-lib",
-  "main": "index.js",
-  "scripts": {},
-  "dependencies": {
-    "pdf-lib": "^1.17.1"
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
   },
-  "engines": {
-    "node": ">=14.0.0"
+  "dependencies": {
+    "express": "^4.17.1",
+    "multer": "^1.4.2",
+    "pdf-lib": "^1.17.1"
   }
 }
