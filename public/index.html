@@ -77,7 +77,6 @@
 
   </div>
 
-  <!-- Tool Description -->
   <div class="alert alert-info mt-5">
     <h3>Tool Description:</h3>
     The PDF Merger Tool is an online service that allows you to merge multiple PDF files into one document. This tool is completely free to use, fast, and simple. Just upload your files, click "Merge PDFs," and download the resulting combined document.
@@ -97,7 +96,6 @@
   <!-- Include jQuery and Bootstrap JS -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
   <script>
     $(document).ready(function() {
@@ -137,44 +135,37 @@
         };
 
         // Merge PDFs
-        $('#mergeBtn').on('click', async function() {
+        $('#mergeBtn').on('click', function() {
             const errorDiv = $('#error');
             const loadingSpinner = $('#loading');
             errorDiv.text('');
             loadingSpinner.removeClass('d-none');
-            
+
+            // Create FormData and append the files for submission
             const formData = new FormData();
-            selectedFiles.forEach(file => {
-                formData.append('files', file);
-            });
+            selectedFiles.forEach(file => formData.append('files', file));
 
-            // Send the request to the backend API
-            try {
-                const response = await fetch('/api/merge-pdfs', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    // If success, show the download link
-                    $('#error').text('');
-                    $('#fileList').append(`
-                        <div class="file-item">
-                            <a href="${result.downloadUrl}" target="_blank">Download Merged PDF</a>
-                        </div>
-                    `);
-                } else {
-                    // Show error message if failed
-                    $('#error').text(result.error || 'An error occurred.');
+            $.ajax({
+                url: '/api/merge-pdfs',  // API endpoint
+                method: 'POST',
+                data: formData,
+                processData: false,  // Don't process the files
+                contentType: false,  // Let jQuery set content type
+                success: function(response) {
+                    loadingSpinner.addClass('d-none');
+                    if (response.downloadUrl) {
+                        // Create a link to download the merged PDF
+                        const link = document.createElement('a');
+                        link.href = response.downloadUrl;
+                        link.download = 'merged.pdf';
+                        link.click();
+                    }
+                },
+                error: function() {
+                    loadingSpinner.addClass('d-none');
+                    errorDiv.text('An error occurred while merging the PDFs.');
                 }
-            } catch (error) {
-                console.error('Error during merging:', error);
-                $('#error').text('An error occurred while merging PDFs.');
-            }
-
-            loadingSpinner.addClass('d-none');
+            });
         });
 
         // Clear all files
