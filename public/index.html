@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Merge multiple PDFs into a single document online. Free, fast, and easy to use.">
+    <title>PDF Merger Tool</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h1 class="text-center">PDF Merger Tool</h1>
+    <div class="alert alert-info text-center">Merge multiple PDFs into a single document!</div>
+
+    <div class="mb-3">
+        <input type="file" id="fileInput" class="form-control" multiple accept="application/pdf">
+    </div>
+    <button class="btn btn-primary" id="mergeBtn">Merge PDFs</button>
+
+    <div id="error" class="text-danger mt-3"></div>
+</div>
+
+<script>
+    document.getElementById('mergeBtn').addEventListener('click', async () => {
+        const files = document.getElementById('fileInput').files;
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = '';
+
+        if (files.length === 0) {
+            errorDiv.textContent = 'Please select at least one PDF.';
+            return;
+        }
+
+        const fileArray = [];
+        for (const file of files) {
+            const reader = new FileReader();
+            const promise = new Promise((resolve) => {
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.readAsDataURL(file);
+            });
+            fileArray.push(await promise);
+        }
+
+        try {
+            const response = await fetch('/api/merge-pdfs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ files: fileArray }),
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'merged.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+            } else {
+                const error = await response.json();
+                errorDiv.textContent = error.error || 'Failed to merge PDFs.';
+            }
+        } catch (error) {
+            errorDiv.textContent = 'An unexpected error occurred.';
+        }
+    });
+</script>
+</body>
+</html>
