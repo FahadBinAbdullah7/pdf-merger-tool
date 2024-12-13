@@ -94,27 +94,18 @@
                 return;
             }
 
-            const fileArray = [];
-            errorDiv.textContent = ''; // Clear error message
-
+            const formData = new FormData();
             selectedFiles.forEach(file => {
-                const reader = new FileReader();
-                const promise = new Promise((resolve) => {
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.readAsDataURL(file);
-                });
-                fileArray.push(promise);
+                formData.append('files', file);
             });
 
             try {
                 // Show loading message
                 errorDiv.textContent = 'Processing, please wait...';
 
-                const base64Files = await Promise.all(fileArray);
                 const response = await fetch('/api/merge-pdfs', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ files: base64Files }),
+                    body: formData,
                 });
 
                 if (response.ok) {
