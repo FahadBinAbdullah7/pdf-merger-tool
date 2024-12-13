@@ -7,13 +7,8 @@ export default async (req, res) => {
 
     try {
         const files = req.body.files; // Expect base64-encoded files array
-        if (!Array.isArray(files) || files.some(file => typeof file !== 'string')) {
-            return res.status(400).json({ error: 'Invalid files format. Expected an array of base64 strings.' });
-        }
-
-        const MAX_FILES = 10;
-        if (files.length > MAX_FILES) {
-            return res.status(400).json({ error: `Maximum of ${MAX_FILES} files allowed.` });
+        if (!files || files.length === 0) {
+            return res.status(400).json({ error: 'No files provided' });
         }
 
         const pdfDoc = await PDFLib.PDFDocument.create();
@@ -27,10 +22,9 @@ export default async (req, res) => {
 
         const mergedPdfBytes = await pdfDoc.save();
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename="merged.pdf"');
         return res.status(200).send(Buffer.from(mergedPdfBytes));
     } catch (error) {
-        console.error('Error merging PDFs:', error.message, error.stack);
+        console.error('Error merging PDFs:', error);
         return res.status(500).json({ error: 'Failed to merge PDFs.' });
     }
 };
