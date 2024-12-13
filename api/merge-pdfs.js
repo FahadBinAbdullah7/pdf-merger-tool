@@ -15,19 +15,29 @@ module.exports = (req, res) => {
       return res.status(500).json({ error: 'An error occurred during file upload.' });
     }
 
+    if (!req.files || req.files.length === 0) {
+      console.error('No files uploaded.');
+      return res.status(400).json({ error: 'No files were uploaded.' });
+    }
+
     try {
       const pdfDoc = await PDFDocument.create();
 
       // Process each uploaded PDF file
       for (const file of req.files) {
-        const existingPdfBytes = await fs.promises.readFile(file.path);
-        const donorPdfDoc = await PDFDocument.load(existingPdfBytes);
+        try {
+          const existingPdfBytes = await fs.promises.readFile(file.path);
+          const donorPdfDoc = await PDFDocument.load(existingPdfBytes);
 
-        const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
-        copiedPages.forEach((page) => pdfDoc.addPage(page));
+          const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
+          copiedPages.forEach((page) => pdfDoc.addPage(page));
 
-        // Clean up uploaded files after processing
-        await fs.promises.unlink(file.path);
+          // Clean up uploaded files after processing
+          await fs.promises.unlink(file.path);
+        } catch (fileError) {
+          console.error('Error processing file:', file.originalname, fileError);
+          return res.status(500).json({ error: `An error occurred while processing file: ${file.originalname}` });
+        }
       }
 
       // Save merged PDF to a buffer
