@@ -9,11 +9,14 @@ export const config = {
 };
 
 export default async (req, res) => {
-    const form = new IncomingForm();
+    const form = new IncomingForm({
+        maxFileSize: 50 * 1024 * 1024, // 50 MB file size limit
+    });
+
     form.parse(req, async (err, fields, files) => {
         if (err) {
             console.error('Error during file parsing:', err);
-            return res.status(500).json({ error: 'Error parsing files' });
+            return res.status(500).json({ error: 'Error parsing files', details: err });
         }
 
         const pdfFiles = files.files; // All uploaded files are in files.files
@@ -26,10 +29,17 @@ export default async (req, res) => {
             const pdfDoc = await PDFLib.PDFDocument.create();
 
             for (let file of pdfFiles) {
-                const pdfBytes = fs.readFileSync(file[0].filepath); // Read the PDF file
-                const donorPdf = await PDFLib.PDFDocument.load(pdfBytes);
-                const copiedPages = await pdfDoc.copyPages(donorPdf, donorPdf.getPageIndices());
-                copiedPages.forEach((page) => pdfDoc.addPage(page));
+                const filePath = file[0].filepath;
+
+                if (fs.existsSync(filePath)) {
+                    const pdfBytes = fs.readFileSync(filePath); // Read the PDF file
+                    const donorPdf = await PDFLib.PDFDocument.load(pdfBytes);
+                    const copiedPages = await pdfDoc.copyPages(donorPdf, donorPdf.getPageIndices());
+                    copiedPages.forEach((page) => pdfDoc.addPage(page));
+                } else {
+                    console.error(`File not found: ${filePath}`);
+                    return res.status(500).json({ error: `File not found: ${filePath}` });
+                }
             }
 
             const mergedPdfBytes = await pdfDoc.save();
@@ -37,7 +47,7 @@ export default async (req, res) => {
             return res.status(200).send(Buffer.from(mergedPdfBytes));
         } catch (error) {
             console.error('Error merging PDFs:', error);
-            return res.status(500).json({ error: 'Failed to merge PDFs' });
+            return res.status(500).json({ error: 'Failed to merge PDFs', details: error });
         }
     });
 };
