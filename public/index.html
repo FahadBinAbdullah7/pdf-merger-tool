@@ -1,7 +1,5 @@
-<!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,7 +26,6 @@
         }
     </style>
 </head>
-
 <body>
     <div class="container mt-5">
         <h1 class="text-center">PDF Merger Tool</h1>
@@ -123,13 +120,14 @@
                     errorDiv.textContent = ''; // Clear the loading message
                 } else {
                     const error = await response.json();
+                    console.error(error); // Log the error from backend
                     errorDiv.textContent = error.error || 'Failed to merge PDFs.';
                 }
             } catch (error) {
+                console.error('Error:', error); // Log unexpected errors in the console
                 errorDiv.textContent = 'An unexpected error occurred.';
             }
         });
     </script>
 </body>
-
 </html>
