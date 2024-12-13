@@ -1,64 +1,51 @@
-// api/merge-pdfs.js
-const { PDFDocument } = require('pdf-lib');
+const express = require('express');
 const fs = require('fs');
-const multer = require('multer');
 const path = require('path');
+const multer = require('multer');
+const { PDFDocument } = require('pdf-lib');
+const app = express();
 
-// Set up multer for file uploads
+// Set up file upload using Multer
 const upload = multer({ dest: 'uploads/' });
 
-module.exports = (req, res) => {
-  // Handling file upload and merging
-  upload.array('files')(req, res, async (err) => {
-    if (err) {
-      console.error('File upload error:', err);
-      return res.status(500).json({ error: 'An error occurred during file upload.' });
-    }
-
-    if (!req.files || req.files.length === 0) {
-      console.error('No files uploaded.');
-      return res.status(400).json({ error: 'No files were uploaded.' });
-    }
-
+app.post('/api/merge-pdfs', upload.array('pdfFiles'), async (req, res) => {
     try {
-      console.log('Merging PDFs...');
-      const pdfDoc = await PDFDocument.create();
-
-      // Process each uploaded PDF file
-      for (const file of req.files) {
-        try {
-          console.log(`Processing file: ${file.originalname}`);
-          const existingPdfBytes = await fs.promises.readFile(file.path);
-          const donorPdfDoc = await PDFDocument.load(existingPdfBytes);
-          
-          const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
-          copiedPages.forEach((page) => pdfDoc.addPage(page));
-
-          // Clean up uploaded files after processing
-          await fs.promises.unlink(file.path);
-        } catch (fileError) {
-          console.error('Error processing file:', file.originalname, fileError);
-          return res.status(500).json({ error: `An error occurred while processing file: ${file.originalname}` });
+        if (!req.files || req.files.length < 2) {
+            return res.status(400).json({ error: 'Please upload at least two PDF files to merge.' });
         }
-      }
 
-      // Save merged PDF to a buffer
-      const mergedPdfBytes = await pdfDoc.save();
+        // Create a new PDF document for the merged result
+        const pdfDoc = await PDFDocument.create();
 
-      // Generate a unique filename (e.g., using the timestamp or input file names)
-      const timestamp = Date.now();
-      const mergedPdfFilename = `merged_${timestamp}.pdf`;
-      const mergedPdfPath = path.join(__dirname, '../public', mergedPdfFilename);
-      
-      await fs.promises.writeFile(mergedPdfPath, mergedPdfBytes);
+        // Loop through the uploaded PDFs and merge them
+        for (const file of req.files) {
+            const pdfBytes = fs.readFileSync(file.path);
+            const donorPdfDoc = await PDFDocument.load(pdfBytes);
+            const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
+            copiedPages.forEach((page) => pdfDoc.addPage(page));
+            // Remove the uploaded file after processing
+            fs.unlinkSync(file.path);
+        }
 
-      console.log('PDFs merged successfully');
-      
-      // Return the download URL with the filename
-      res.json({ downloadUrl: `/public/${mergedPdfFilename}` });
+        // Save the merged PDF
+        const mergedPdfBytes = await pdfDoc.save();
+
+        // Set the response header for downloading the file
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=merged.pdf');
+        res.send(mergedPdfBytes);
+
     } catch (error) {
-      console.error('Error merging PDFs:', error);
-      res.status(500).json({ error: 'An error occurred while merging the PDFs.' });
+        console.error('Error merging PDFs:', error);
+        res.status(500).json({ error: 'An error occurred while merging the PDFs.' });
     }
-  });
-};
+});
+
+// Serve static files (index.html and assets)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
