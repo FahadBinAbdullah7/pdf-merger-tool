@@ -72,7 +72,7 @@
             selectedFiles.forEach((file, index) => {
                 const fileItem = document.createElement('div');
                 fileItem.classList.add('file-item');
-                fileItem.innerHTML = ${file.name} <span class="remove" onclick="removeFile(${index})">X</span>;
+                fileItem.innerHTML = `${file.name} <span class="remove" onclick="removeFile(${index})">X</span>`;
                 fileList.appendChild(fileItem);
             });
         }
