@@ -1,110 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Merge multiple PDFs into a single document online. Free, fast, and easy to use.">
     <title>PDF Merger Tool</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css" rel="stylesheet">
 </head>
+
 <body>
     <div class="container mt-5">
         <h1 class="text-center">PDF Merger Tool</h1>
         <div class="alert alert-info text-center">Merge multiple PDFs into a single document!</div>
 
-        <!-- File selection and display -->
         <div class="mb-3">
             <input type="file" id="fileInput" class="form-control" multiple accept="application/pdf">
         </div>
-        <div id="fileList"></div>
-
-        <!-- Action buttons -->
         <button class="btn btn-primary" id="mergeBtn">Merge PDFs</button>
-        <button class="btn btn-danger" id="clearBtn">Clear All</button>
+        <button class="btn btn-danger" id="clearAllBtn">Clear All</button>
 
-        <!-- Error and loading indicator -->
         <div id="error" class="text-danger mt-3"></div>
-        <div id="loadingIndicator" style="display: none;" class="text-center mt-3">
-            <div class="spinner-border" role="status">
-                <span class="sr-only">Loading...</span>
-            </div>
-            <p>Processing, please wait...</p>
-        </div>
-
-        <!-- Download link -->
-        <div id="downloadLink" style="display: none;" class="mt-3">
-            <a id="downloadBtn" class="btn btn-success" download="merged.pdf">Download Merged PDF</a>
-        </div>
     </div>
 
     <script>
-        const fileInput = document.getElementById('fileInput');
-        const fileList = document.getElementById('fileList');
-        const mergeBtn = document.getElementById('mergeBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const errorDiv = document.getElementById('error');
-        const downloadLinkDiv = document.getElementById('downloadLink');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const loadingIndicator = document.getElementById('loadingIndicator'); // The loading indicator
+        document.getElementById('mergeBtn').addEventListener('click', async () => {
+            const files = document.getElementById('fileInput').files;
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = ''; // Clear any previous error
 
-        let selectedFiles = [];
-
-        // Handle file selection
-        fileInput.addEventListener('change', () => {
-            const files = fileInput.files;
-            for (const file of files) {
-                if (!selectedFiles.some(f => f.name === file.name)) {
-                    selectedFiles.push(file);
-                    renderFileList();
-                }
-            }
-        });
-
-        // Render the selected files in the UI
-        function renderFileList() {
-            fileList.innerHTML = '';
-            selectedFiles.forEach(file => {
-                const fileItem = document.createElement('div');
-                fileItem.classList.add('file-item');
-                fileItem.innerHTML = `
-                    <span>${file.name}</span>
-                    <span class="remove-btn" onclick="removeFile('${file.name}')"><i class="bi bi-x-circle"></i></span>
-                `;
-                fileList.appendChild(fileItem);
-            });
-        }
-
-        // Remove file from the list
-        function removeFile(fileName) {
-            selectedFiles = selectedFiles.filter(file => file.name !== fileName);
-            renderFileList();
-        }
-
-        // Clear all selected files
-        clearBtn.addEventListener('click', () => {
-            selectedFiles = [];
-            renderFileList();
-            errorDiv.textContent = '';
-            downloadLinkDiv.style.display = 'none';
-            loadingIndicator.style.display = 'none'; // Hide the loading indicator
-        });
-
-        // Merge PDFs
-        mergeBtn.addEventListener('click', async () => {
-            errorDiv.textContent = '';
-            downloadLinkDiv.style.display = 'none'; // Hide download link initially
-            loadingIndicator.style.display = 'block'; // Show loading spinner
-
-            if (selectedFiles.length === 0) {
+            if (files.length === 0) {
                 errorDiv.textContent = 'Please select at least one PDF.';
-                loadingIndicator.style.display = 'none'; // Hide loading spinner
                 return;
             }
 
-            // Convert files to base64 strings
             const fileArray = [];
-            for (const file of selectedFiles) {
+            for (const file of files) {
                 const reader = new FileReader();
                 const promise = new Promise((resolve) => {
                     reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -114,6 +45,9 @@
             }
 
             try {
+                // Show loading message or indicator
+                errorDiv.textContent = 'Processing, please wait...';
+
                 const response = await fetch('/api/merge-pdfs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -122,21 +56,30 @@
 
                 if (response.ok) {
                     const blob = await response.blob();
-                    const url = URL.createObjectURL(blob);
 
-                    // Show download link
-                    downloadLinkDiv.style.display = 'block';
-                    downloadBtn.href = url;  // Set the download link to the merged PDF
+                    // Create a URL for the merged PDF Blob
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'merged.pdf'; // Automatically download the file
+                    a.click(); // Trigger the download
+
+                    URL.revokeObjectURL(url); // Clean up the object URL
+                    errorDiv.textContent = ''; // Clear the loading message
                 } else {
                     const error = await response.json();
                     errorDiv.textContent = error.error || 'Failed to merge PDFs.';
                 }
             } catch (error) {
                 errorDiv.textContent = 'An unexpected error occurred.';
-            } finally {
-                loadingIndicator.style.display = 'none'; // Hide loading spinner when done
             }
+        });
+
+        document.getElementById('clearAllBtn').addEventListener('click', () => {
+            document.getElementById('fileInput').value = ''; // Clear the file input
+            document.getElementById('error').textContent = ''; // Clear any error messages
         });
     </script>
 </body>
+
 </html>
