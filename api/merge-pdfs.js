@@ -1,27 +1,31 @@
 const express = require('express');
 const { PDFDocument } = require('pdf-lib');
-const bodyParser = require('body-parser');
+const multer = require('multer');
+const path = require('path');
 
 const app = express();
 const port = 3000;
 
-// Middleware
-app.use(bodyParser.json({ limit: '50mb' })); // Increase the size limit for larger files
+// Multer configuration for file uploads
+const upload = multer({
+    storage: multer.memoryStorage(), // Store files in memory
+    limits: { fileSize: 50 * 1024 * 1024 }, // Limit file size to 50 MB
+});
 
 // PDF merge route
-app.post('/api/merge-pdfs', async (req, res) => {
+app.post('/api/merge-pdfs', upload.array('pdfFiles', 10), async (req, res) => {
     try {
-        const { files } = req.body;
+        const files = req.files;
 
         if (!files || files.length === 0) {
-            return res.status(400).json({ error: 'No files provided' });
+            return res.status(400).json({ error: 'No files uploaded' });
         }
 
         // Create a new PDF document
         const pdfDoc = await PDFDocument.create();
 
         for (let file of files) {
-            const pdfBytes = Buffer.from(file, 'base64');
+            const pdfBytes = file.buffer; // Access file buffer directly
             const existingPdfDoc = await PDFDocument.load(pdfBytes);
             const copiedPages = await pdfDoc.copyPages(existingPdfDoc, existingPdfDoc.getPageIndices());
 
@@ -31,14 +35,12 @@ app.post('/api/merge-pdfs', async (req, res) => {
         // Serialize the PDF document to bytes
         const mergedPdfBytes = await pdfDoc.save();
 
-        // Convert to base64 string
-        const mergedPdfBase64 = mergedPdfBytes.toString('base64');
+        // Set headers to trigger file download
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=merged.pdf');
 
-        // Create a base64 URL (data URL)
-        const base64Url = `data:application/pdf;base64,${mergedPdfBase64}`;
-
-        // Return the base64 URL as the response
-        res.json({ base64Url });
+        // Send the PDF bytes directly
+        res.send(mergedPdfBytes);
 
     } catch (error) {
         console.error(error);
