@@ -1,51 +1,47 @@
+// api/merge-pdfs.js
 const { PDFDocument } = require('pdf-lib');
 const fs = require('fs');
+const multer = require('multer');
 const path = require('path');
-const os = require('os');
 
-module.exports = async (req, res) => {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+// Set up multer for file uploads
+const upload = multer({ dest: 'uploads/' });
 
-  try {
-    // Parse incoming JSON body
-    const { files } = req.body;
-
-    if (!files || files.length === 0) {
-      return res.status(400).json({ error: 'No files provided!' });
+module.exports = (req, res) => {
+  // Handling file upload and merging
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.error('File upload error:', err);
+      return res.status(500).json({ error: 'An error occurred during file upload.' });
     }
 
-    // Create a new PDF document
-    const pdfDoc = await PDFDocument.create();
+    try {
+      const pdfDoc = await PDFDocument.create();
 
-    // Add pages from each uploaded PDF file
-    for (const file of files) {
-      const { fileContent } = file;  // File content should be base64-encoded
-      const fileBuffer = Buffer.from(fileContent, 'base64');
-      const donorPdfDoc = await PDFDocument.load(fileBuffer);
-      const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
-      copiedPages.forEach((page) => pdfDoc.addPage(page));
+      // Process each uploaded PDF file
+      for (const file of req.files) {
+        const existingPdfBytes = await fs.promises.readFile(file.path);
+        const donorPdfDoc = await PDFDocument.load(existingPdfBytes);
+
+        const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
+        copiedPages.forEach((page) => pdfDoc.addPage(page));
+
+        // Clean up uploaded files after processing
+        await fs.promises.unlink(file.path);
+      }
+
+      // Save merged PDF to a buffer
+      const mergedPdfBytes = await pdfDoc.save();
+
+      // Generate a filename and store the merged PDF file
+      const mergedPdfPath = path.join(__dirname, '../public/merged.pdf');
+      await fs.promises.writeFile(mergedPdfPath, mergedPdfBytes);
+
+      // Return a response with the download URL
+      res.json({ downloadUrl: '/merged.pdf' });
+    } catch (error) {
+      console.error('Error merging PDFs:', error);
+      res.status(500).json({ error: 'An error occurred while merging the PDFs.' });
     }
-
-    // Save the merged PDF
-    const mergedPdfBytes = await pdfDoc.save();
-
-    // Save the merged PDF file temporarily on the server
-    const tempFilePath = path.join(os.tmpdir(), 'merged.pdf');
-    fs.writeFileSync(tempFilePath, mergedPdfBytes);
-
-    // Upload the merged PDF to a public location (if needed, use AWS S3, Vercel file system, etc.)
-    const downloadUrl = `https://your-vercel-domain.vercel.app/merged-pdfs/merged.pdf`; // This is just an example URL
-
-    // Return the download URL
-    return res.status(200).json({
-      status: 'success',
-      message: 'PDFs merged successfully.',
-      downloadUrl: downloadUrl,
-    });
-  } catch (error) {
-    console.error('Error merging PDFs:', error);
-    return res.status(500).json({ error: 'An error occurred while merging the PDFs.' });
-  }
+  });
 };
