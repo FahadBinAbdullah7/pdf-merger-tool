@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,6 +27,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container mt-5">
         <h1 class="text-center">PDF Merger Tool</h1>
@@ -70,7 +72,7 @@
             selectedFiles.forEach((file, index) => {
                 const fileItem = document.createElement('div');
                 fileItem.classList.add('file-item');
-                fileItem.innerHTML = `${file.name} <span class="remove" onclick="removeFile(${index})">X</span>`;
+                fileItem.innerHTML = ${file.name} <span class="remove" onclick="removeFile(${index})">X</span>;
                 fileList.appendChild(fileItem);
             });
         }
@@ -92,18 +94,27 @@
                 return;
             }
 
-            const formData = new FormData();
+            const fileArray = [];
+            errorDiv.textContent = ''; // Clear error message
+
             selectedFiles.forEach(file => {
-                formData.append('files', file);
+                const reader = new FileReader();
+                const promise = new Promise((resolve) => {
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(file);
+                });
+                fileArray.push(promise);
             });
 
             try {
                 // Show loading message
                 errorDiv.textContent = 'Processing, please wait...';
 
+                const base64Files = await Promise.all(fileArray);
                 const response = await fetch('/api/merge-pdfs', {
                     method: 'POST',
-                    body: formData,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files: base64Files }),
                 });
 
                 if (response.ok) {
@@ -120,14 +131,13 @@
                     errorDiv.textContent = ''; // Clear the loading message
                 } else {
                     const error = await response.json();
-                    console.error(error); // Log the error from backend
                     errorDiv.textContent = error.error || 'Failed to merge PDFs.';
                 }
             } catch (error) {
-                console.error('Error:', error); // Log unexpected errors in the console
                 errorDiv.textContent = 'An unexpected error occurred.';
             }
         });
     </script>
 </body>
+
 </html>
