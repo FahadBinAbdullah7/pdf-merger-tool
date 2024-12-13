@@ -21,14 +21,16 @@ module.exports = (req, res) => {
     }
 
     try {
+      console.log('Merging PDFs...');
       const pdfDoc = await PDFDocument.create();
 
       // Process each uploaded PDF file
       for (const file of req.files) {
         try {
+          console.log(`Processing file: ${file.originalname}`);
           const existingPdfBytes = await fs.promises.readFile(file.path);
           const donorPdfDoc = await PDFDocument.load(existingPdfBytes);
-
+          
           const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
           copiedPages.forEach((page) => pdfDoc.addPage(page));
 
@@ -43,12 +45,17 @@ module.exports = (req, res) => {
       // Save merged PDF to a buffer
       const mergedPdfBytes = await pdfDoc.save();
 
-      // Generate a filename and store the merged PDF file
-      const mergedPdfPath = path.join(__dirname, '../public/merged.pdf');
+      // Generate a unique filename (e.g., using the timestamp or input file names)
+      const timestamp = Date.now();
+      const mergedPdfFilename = `merged_${timestamp}.pdf`;
+      const mergedPdfPath = path.join(__dirname, '../public', mergedPdfFilename);
+      
       await fs.promises.writeFile(mergedPdfPath, mergedPdfBytes);
 
-      // Return a response with the download URL
-      res.json({ downloadUrl: '/merged.pdf' });
+      console.log('PDFs merged successfully');
+      
+      // Return the download URL with the filename
+      res.json({ downloadUrl: `/public/${mergedPdfFilename}` });
     } catch (error) {
       console.error('Error merging PDFs:', error);
       res.status(500).json({ error: 'An error occurred while merging the PDFs.' });
