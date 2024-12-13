@@ -1,51 +1,53 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
-const { PDFDocument } = require('pdf-lib');
+const path = require('path');
+const fs = require('fs');
+const PDFLib = require('pdf-lib');
 const app = express();
+const port = 5000;
 
-// Set up file upload using Multer
-const upload = multer({ dest: 'uploads/' });
+// Set up multer for file uploads
+const storage = multer.memoryStorage();  // Store files in memory for processing
+const upload = multer({ storage: storage }).array('files');
 
-app.post('/api/merge-pdfs', upload.array('pdfFiles'), async (req, res) => {
-    try {
-        if (!req.files || req.files.length < 2) {
-            return res.status(400).json({ error: 'Please upload at least two PDF files to merge.' });
-        }
+// Serve static files from the public folder
+app.use(express.static(path.join(__dirname, '../public')));
 
-        // Create a new PDF document for the merged result
-        const pdfDoc = await PDFDocument.create();
+// API endpoint to merge PDFs
+app.post('/api/merge-pdfs', upload, async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ message: 'No files uploaded' });
+  }
 
-        // Loop through the uploaded PDFs and merge them
-        for (const file of req.files) {
-            const pdfBytes = fs.readFileSync(file.path);
-            const donorPdfDoc = await PDFDocument.load(pdfBytes);
-            const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
-            copiedPages.forEach((page) => pdfDoc.addPage(page));
-            // Remove the uploaded file after processing
-            fs.unlinkSync(file.path);
-        }
+  try {
+    const pdfDoc = await PDFLib.PDFDocument.create();
 
-        // Save the merged PDF
-        const mergedPdfBytes = await pdfDoc.save();
-
-        // Set the response header for downloading the file
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename=merged.pdf');
-        res.send(mergedPdfBytes);
-
-    } catch (error) {
-        console.error('Error merging PDFs:', error);
-        res.status(500).json({ error: 'An error occurred while merging the PDFs.' });
+    // Merge all uploaded PDFs
+    for (const file of req.files) {
+      const arrayBuffer = file.buffer;
+      const donorPdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+      const copiedPages = await pdfDoc.copyPages(donorPdfDoc, donorPdfDoc.getPageIndices());
+      copiedPages.forEach(page => pdfDoc.addPage(page));
     }
+
+    // Save the merged PDF
+    const mergedPdfBytes = await pdfDoc.save();
+    
+    // Generate a filename and save the merged PDF to disk
+    const outputFileName = `merged-${Date.now()}.pdf`;
+    const outputFilePath = path.join(__dirname, '../public', outputFileName);
+    
+    fs.writeFileSync(outputFilePath, mergedPdfBytes);
+    
+    // Send the download link as a response
+    const downloadLink = `${req.protocol}://${req.get('host')}/` + outputFileName;
+    res.status(200).json({ downloadLink: downloadLink });
+  } catch (error) {
+    console.error('Error merging PDFs:', error);
+    res.status(500).json({ message: 'An error occurred while merging the PDFs.' });
+  }
 });
 
-// Serve static files (index.html and assets)
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Start the server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
