@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/merge-pdfs.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/merge-pdfs",
+      "dest": "api/merge-pdfs.js"
+    }
+  ]
+}
