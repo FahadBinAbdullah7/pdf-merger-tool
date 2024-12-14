@@ -37,10 +37,6 @@
             <input type="file" id="fileInput" class="form-control" multiple accept="application/pdf">
         </div>
 
-        <div class="mb-3">
-            <textarea id="urlsInput" class="form-control" placeholder="Enter PDF URLs, one per line"></textarea>
-        </div>
-
         <div id="fileList" class="mb-3"></div>
 
         <button class="btn btn-danger" id="clearAllBtn">Clear All</button>
@@ -51,7 +47,6 @@
 
     <script>
         const fileInput = document.getElementById('fileInput');
-        const urlsInput = document.getElementById('urlsInput');
         const fileList = document.getElementById('fileList');
         const mergeBtn = document.getElementById('mergeBtn');
         const clearAllBtn = document.getElementById('clearAllBtn');
@@ -90,43 +85,26 @@
             selectedFiles = [];
             displayFiles();
             errorDiv.textContent = ''; // Clear error message
-            urlsInput.value = ''; // Clear URL input
         });
 
         mergeBtn.addEventListener('click', async () => {
-            const urlValue = urlsInput.value.trim();
-            const urls = urlValue ? urlValue.split('\n').map(url => url.trim()) : [];
-
-            if (selectedFiles.length === 0 && urls.length === 0) {
-                errorDiv.textContent = 'Please select at least one PDF or enter URLs.';
+            if (selectedFiles.length === 0) {
+                errorDiv.textContent = 'Please select at least one PDF.';
                 return;
             }
 
             errorDiv.textContent = 'Processing, please wait...';
 
-            try {
-                let response;
-                if (urls.length > 0) {
-                    // Merge PDFs from URLs
-                    response = await fetch('/api/merge-pdfs-from-urls', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ pdfUrls: urls })
-                    });
-                } else {
-                    // Merge uploaded PDFs
-                    const formData = new FormData();
-                    selectedFiles.forEach(file => {
-                        formData.append('pdfFiles', file); // Append each file
-                    });
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('pdfFiles', file); // Append each file
+            });
 
-                    response = await fetch('/api/merge-uploaded-pdfs', {
-                        method: 'POST',
-                        body: formData
-                    });
-                }
+            try {
+                const response = await fetch('/api/merge-pdfs', {
+                    method: 'POST',
+                    body: formData
+                });
 
                 if (response.ok) {
                     const blob = await response.blob();
