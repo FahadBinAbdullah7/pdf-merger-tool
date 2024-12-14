@@ -4,14 +4,13 @@ const multer = require('multer');
 const { PDFDocument } = require('pdf-lib');
 
 const app = express();
-const port = 3000;
 
 // Middleware for parsing JSON bodies and handling file uploads
 app.use(express.json({ limit: '50mb' }));
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Endpoint to merge PDFs from URLs
-app.post('/api/merge-pdfs-from-urls', async (req, res) => {
+app.post('/merge-pdfs-from-urls', async (req, res) => {
     try {
         const { pdfUrls } = req.body; // Expecting an array of URLs
 
@@ -37,13 +36,13 @@ app.post('/api/merge-pdfs-from-urls', async (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename=merged-from-urls.pdf');
         res.send(Buffer.from(mergedPdfBytes));
     } catch (error) {
-        console.error(error);
+        console.error('Error merging PDFs from URLs:', error);
         res.status(500).json({ error: 'Failed to merge PDFs from provided URLs.' });
     }
 });
 
 // Endpoint to merge uploaded PDFs
-app.post('/api/merge-uploaded-pdfs', upload.array('pdfFiles'), async (req, res) => {
+app.post('/merge-uploaded-pdfs', upload.array('pdfFiles'), async (req, res) => {
     try {
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ error: 'No PDF files uploaded.' });
@@ -66,11 +65,9 @@ app.post('/api/merge-uploaded-pdfs', upload.array('pdfFiles'), async (req, res) 
         res.setHeader('Content-Disposition', 'attachment; filename=merged-from-uploads.pdf');
         res.send(Buffer.from(mergedPdfBytes));
     } catch (error) {
-        console.error(error);
+        console.error('Error merging uploaded PDFs:', error);
         res.status(500).json({ error: 'An error occurred while merging PDFs.' });
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+module.exports = app;
